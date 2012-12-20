@@ -6,7 +6,7 @@ from subprocess import call
 
 class GitAutoDeploy(BaseHTTPRequestHandler):
 
-    CONFIG_FILEPATH = './GitAutoDeploy.conf.json'
+    CONFIG_FILEPATH = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + 'GitAutoDeploy.conf.json'
     config = None
     quiet = False
     daemon = False
@@ -29,6 +29,8 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                     sys.exit('Directory ' + repository['path'] + ' not found')
                 if(not os.path.isdir(repository['path'] + '/.git')):
                     sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
+                if(repository['url'].count('git@')):
+                    sys.exit('Repository URL ' + repository['url'] + ' should use the https:// Github URL.')
 
         return myClass.config
 
@@ -36,8 +38,12 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         urls = self.parseRequest()
         for url in urls:
             path = self.getMatchingPath(url)
-            self.pull(path)
-            self.deploy(path)
+
+            if(path):
+                self.pull(path)
+                self.deploy(path)
+            else:
+                sys.exit('Error: Repo URL ' + url + ' doesn\'t exist in config file.') 
 
     def parseRequest(self):
         length = int(self.headers.getheader('content-length'))
