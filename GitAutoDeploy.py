@@ -6,7 +6,7 @@ from subprocess import call
 
 class GitAutoDeploy(BaseHTTPRequestHandler):
 
-    CONFIG_FILEPATH = './GitAutoDeploy.conf.json'
+    CONFIG_FILEPATH = os.path.dirname(os.path.realpath(__file__)) + os.path.sep + 'GitAutoDeploy.conf.json'
     config = None
     quiet = False
     daemon = False
