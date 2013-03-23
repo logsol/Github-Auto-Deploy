@@ -46,6 +46,8 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
             self.wfile.write("<head><title>Github Autodeploy</title></head>")
             self.wfile.write("<body><p>Ok, updated.</p></body>")
             self.wfile.write("</html>")
+        else:
+            self.send_response(500)
 
     def do_POST(self):
         urls = self.parseRequest()
