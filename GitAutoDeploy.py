@@ -10,6 +10,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
     config = None
     quiet = False
     daemon = False
+    isGetAvailable = False
 
     @classmethod
     def getConfig(cls):
@@ -31,6 +32,20 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                     sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
 
         return cls.config
+
+    def do_GET(self):
+        if GitAutoDeploy.isGetAvailable:
+            paths = [repository['path'] for repository in self.getConfig()['repositories']]
+            for path in paths:
+                self.pull(path)
+                self.deploy(path)
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write("<html>")
+            self.wfile.write("<head><title>Github Autodeploy</title></head>")
+            self.wfile.write("<body><p>Ok, updated.</p></body>")
+            self.wfile.write("</html>")
 
     def do_POST(self):
         urls = self.parseRequest()
@@ -90,6 +105,8 @@ def main():
                 GitAutoDeploy.quiet = True
             if arg == '-q' or arg == '--quiet':
                 GitAutoDeploy.quiet = True
+            if arg == '-g' or arg == '--get-to-pull':
+                GitAutoDeploy.isGetAvailable = True
 
         if GitAutoDeploy.daemon:
             pid = os.fork()
@@ -98,9 +115,9 @@ def main():
             os.setsid()
 
         if not GitAutoDeploy.quiet:
-            print 'Github Autodeploy Service v 0.1 started'
+            print 'Github Autodeploy Service v 0.2 started'
         else:
-            print 'Github Autodeploy Service v 0.1 started in daemon mode'
+            print 'Github Autodeploy Service v 0.2 started in daemon mode'
 
         server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
         server.serve_forever()
