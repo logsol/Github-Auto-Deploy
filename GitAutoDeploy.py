@@ -46,6 +46,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         post = urlparse.parse_qs(body)
         items = []
+        print post
         for itemString in post['payload']:
             item = json.loads(itemString)
             items.append(item['repository']['url'])
