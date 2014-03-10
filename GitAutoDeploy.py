@@ -34,12 +34,15 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url_refs = self.parseRequest()
+	matchingPaths = []
         for url, ref in url_refs:
             paths = self.getMatchingPaths(url, ref)
-            for path in paths:
-                self.pull(path)
-                self.deploy(path)
-	self.respond()
+	    for path in paths:
+		matchingPaths.append(path)
+	self.respond(matchingPaths)
+	for path in matchingPaths:
+             self.pull(path)
+             self.deploy(path)
 
     def parseRequest(self):
         length = int(self.headers.getheader('content-length'))
@@ -59,10 +62,16 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                 res.append(repository['path'])
         return res
 
-    def respond(self):
-        self.send_response(200)
+    def respond(self,paths):
+        self.send_response(200,paths)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
+	if (len(paths) == 0):
+		self.wfile.write('No repositorys need to be redeployed.')
+	else:
+		for path in paths:
+			self.wfile.write('\"' + path + '\" Will be redeployed.')
+
 
     def pull(self, path):
         if(not self.quiet):
