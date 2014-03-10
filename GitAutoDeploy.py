@@ -33,12 +33,16 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         return myClass.config
 
     def do_POST(self):
-        urls = self.parseRequest()
-        for url in urls:
-            paths = self.getMatchingPaths(url)
-            for path in paths:
-                self.pull(path)
-                self.deploy(path)
+        url_refs = self.parseRequest()
+	matchingPaths = []
+        for url, ref in url_refs:
+            paths = self.getMatchingPaths(url, ref)
+	    for path in paths:
+		matchingPaths.append(path)
+	self.respond(matchingPaths)
+	for path in matchingPaths:
+             self.pull(path)
+             self.deploy(path)
 
     def parseRequest(self):
         length = int(self.headers.getheader('content-length'))
@@ -47,21 +51,27 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         items = []
         for itemString in post['payload']:
             item = json.loads(itemString)
-            items.append(item['repository']['url'])
+            items.append((item['repository']['url'], item['ref']))
         return items
 
-    def getMatchingPaths(self, repoUrl):
+    def getMatchingPaths(self, repoUrl, ref):
         res = []
         config = self.getConfig()
         for repository in config['repositories']:
-            if(repository['url'] == repoUrl):
+            if(repository['url'] == repoUrl and repository.get('ref', '') in ('', ref)):
                 res.append(repository['path'])
         return res
 
-    def respond(self):
-        self.send_response(200)
+    def respond(self,paths):
+        self.send_response(200,paths)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
+	if (len(paths) == 0):
+		self.wfile.write('No repositorys need to be redeployed.')
+	else:
+		for path in paths:
+			self.wfile.write('\"' + path + '\" Will be redeployed.')
+
 
     def pull(self, path):
         if(not self.quiet):
