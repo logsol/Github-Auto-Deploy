@@ -53,12 +53,9 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
     def parseRequest(self):
         length = int(self.headers.getheader('content-length'))
         body = self.rfile.read(length)
-        post = urlparse.parse_qs(body)
-        items = []
-        for itemString in post['payload']:
-            item = json.loads(itemString)
-            items.append(item['repository']['url'])
-        return items
+        payload = json.loads(body)
+        self.branch = payload['ref']
+        return [payload['repository']['url']]
 
     def getMatchingPaths(self, repoUrl):
         res = []
