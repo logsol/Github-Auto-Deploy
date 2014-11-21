@@ -106,7 +106,7 @@ def main():
             os.setsid()
 
         if(not GitAutoDeploy.quiet):
-            print 'Github Autodeploy Service v 0.1 started'
+            print 'Github Autodeploy Service v0.2 started'
         else:
             print 'Github Autodeploy Service v 0.1 started in daemon mode'
              

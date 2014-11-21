@@ -2,7 +2,7 @@
 
 h1. What is it?
 
-this is a small HTTP server written in python. 
+This is a small HTTP server written in python. 
 It allows you to have a version of your project installed, that will be updated automatically on each Github push.
 
 To set it up, do the following:
@@ -15,7 +15,7 @@ To set it up, do the following:
 "Post-Receive URLs" and add the url of your machine + port (e.g. http://example.com:8001).
 * Specify Content type as application/json
 
-You can even test the whole thing here, by clicking on the "Test Hook" button, whohoo!
+You can test hook delivery by clicking redeliver existing hook delieveries.
 
 h1. How this works
 
