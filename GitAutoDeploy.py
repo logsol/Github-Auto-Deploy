@@ -47,7 +47,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         for url in urls:
             paths = self.getMatchingPaths(url)
             for path in paths:
-                self.pull(path)
+                self.fetch(path)
                 self.deploy(path)
 
     def parseRequest(self):
@@ -73,11 +73,11 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
 
-    def pull(self, path):
+    def fetch(self, path):
         if(not self.quiet):
             print "\nPost push request received"
             print 'Updating ' + path
-        call(['cd "' + path + '" && git pull'], shell=True)
+        call(['cd "' + path + '" && git fetch'], shell=True)
 
     def deploy(self, path):
         config = self.getConfig()
