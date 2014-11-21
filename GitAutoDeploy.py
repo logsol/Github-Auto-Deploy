@@ -27,7 +27,9 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
             for repository in myClass.config['repositories']:
                 if(not os.path.isdir(repository['path'])):
                     sys.exit('Directory ' + repository['path'] + ' not found')
-                if(not os.path.isdir(repository['path'] + '/.git')):
+                # Check for a repository with a local or a remote GIT_WORK_DIR
+                if not os.path.isdir(os.path.join(repository['path'], '/.git')) \
+                   and not os.path.isdir(os.path.join(repository['path'], 'objects')):
                     sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
 
         return myClass.config
