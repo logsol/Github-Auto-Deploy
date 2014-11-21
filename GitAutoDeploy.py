@@ -35,6 +35,14 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         return myClass.config
 
     def do_POST(self):
+        if self.headers.getheader('x-github-event') != 'push':
+            if not self.quiet:
+                print 'We only handle push events'
+            self.respond(304)
+            return
+
+        self.respond(204)
+
         urls = self.parseRequest()
         for url in urls:
             paths = self.getMatchingPaths(url)
@@ -60,8 +68,8 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                 res.append(repository['path'])
         return res
 
-    def respond(self):
-        self.send_response(200)
+    def respond(self, code):
+        self.send_response(code)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
 
