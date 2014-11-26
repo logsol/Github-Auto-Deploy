@@ -108,7 +108,7 @@ def main():
         if(not GitAutoDeploy.quiet):
             print 'Github Autodeploy Service v0.2 started'
         else:
-            print 'Github Autodeploy Service v 0.1 started in daemon mode'
+            print 'Github Autodeploy Service v 0.2 started in daemon mode'
              
         server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
         server.serve_forever()
