@@ -81,12 +81,17 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         for repository in config['repositories']:
             if(repository['path'] == path):
                 if 'deploy' in repository:
-                    if 'branch' in repository and repository['branch'] == self.branch:
+                    branch = None
+                    if 'branch' in repository:
+                        branch = repository['branch']
+
+                    if branch is None or branch == self.branch:
                         if(not self.quiet):
                             print 'Executing deploy command'
-                            call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
+                        call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
+                        
                     elif not self.quiet:
-                        print 'Push to different branch (%s != %s), not deploying' % (repository['branch'], self.branch)
+                        print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
                 break
 
 def main():
