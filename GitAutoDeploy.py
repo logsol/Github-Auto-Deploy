@@ -28,7 +28,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                 if(not os.path.isdir(repository['path'])):
                     sys.exit('Directory ' + repository['path'] + ' not found')
                 # Check for a repository with a local or a remote GIT_WORK_DIR
-                if not os.path.isdir(os.path.join(repository['path'], '/.git')) \
+                if not os.path.isdir(os.path.join(repository['path'], '.git')) \
                    and not os.path.isdir(os.path.join(repository['path'], 'objects')):
                     sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
 
@@ -81,12 +81,17 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         for repository in config['repositories']:
             if(repository['path'] == path):
                 if 'deploy' in repository:
-                    if 'branch' in repository and repository['branch'] == self.branch:
+                    branch = None
+                    if 'branch' in repository:
+                        branch = repository['branch']
+
+                    if branch is None or branch == self.branch:
                         if(not self.quiet):
                             print 'Executing deploy command'
-                            call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
+                        call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
+                        
                     elif not self.quiet:
-                        print 'Push to different branch (%s != %s), not deploying' % (repository['branch'], self.branch)
+                        print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
                 break
 
 def main():
