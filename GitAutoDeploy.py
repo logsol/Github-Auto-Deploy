@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 import json, urlparse, sys, os
+import hmac, hashlib
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from subprocess import call
+
 
 class GitAutoDeploy(BaseHTTPRequestHandler):
 
@@ -36,6 +38,18 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
 
     def do_POST(self):
         event = self.headers.getheader('X-Github-Event')
+        body, payload = self.getPayload()
+        try:
+            urls = self.parseRequest(payload)
+        except:
+            if not self.quiet:
+                print 'Cannot parse url. Invalid payload?'
+            self.respond(304)
+            return
+
+        if not self.checkHMACSignature(body, urls):
+            return
+
         if event == 'ping':
             if not self.quiet:
                 print 'Ping event received'
@@ -49,18 +63,56 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
 
         self.respond(204)
 
-        urls = self.parseRequest()
         for url in urls:
             paths = self.getMatchingPaths(url)
             for path in paths:
                 self.fetch(path)
                 self.deploy(path)
 
-    def parseRequest(self):
+    def getPayload(self):
         length = int(self.headers.getheader('content-length'))
         body = self.rfile.read(length)
         payload = json.loads(body)
-        self.branch = payload['ref']
+        return (body, payload)
+
+    def _validate_signature(self, secret, data):
+        sha_name, signature = self.headers.getheader('X-Hub-Signature').split('=')
+        if sha_name != 'sha1':
+            return False
+
+        # HMAC requires its key to be bytes, but data is strings.
+        mac = hmac.new(bytes(secret), msg=data, digestmod=hashlib.sha1)
+        return mac.hexdigest() == signature
+
+    def checkHMACSignature(self, body, urls):
+        signature = self.headers.getheader('X-Hub-Signature')
+        if not signature:
+            return True
+
+        config = self.getConfig()
+        secret = None
+        for url in urls:
+            for repository in config['repositories']:
+                if (repository['url'] == url):
+                    if 'secret' in repository:
+                        secret = repository['secret']
+        if not secret:
+            if not self.quiet:
+                print 'No secret configured'
+            self.respond(304)
+            return False
+
+        if not self._validate_signature(secret, body):
+            if not self.quiet:
+                print 'Bad request signature'
+            self.respond(304)
+            return False
+
+        return True
+
+    def parseRequest(self, payload):
+        if 'ref' in payload:
+            self.branch = payload['ref']
         return [payload['repository']['url']]
 
     def getMatchingPaths(self, repoUrl):
