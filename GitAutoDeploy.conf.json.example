@@ -4,6 +4,7 @@
 	[{
 		"url": "https://github.com/logsol/Test-Repo", 
 		"path": "/home/logsol/projects/Test-Repo",
+		"gitcmd": "git fetch && git reset --hard origin/master && git clean -df && git checkout master",
 		"deploy": "echo deploying"
 	}, 
 	{
