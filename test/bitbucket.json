@@ -18,10 +18,10 @@
   "repository": {
     "links": {
       "self": {
-        "href": "https://api.bitbucket.org/api/2.0/repositories/bitbucket/bitbucket"
+        "href": "https://api.bitbucket.org/api/2.0/repositories/team_name/repo_name"
       },
       "html": {
-        "href": "https://api.bitbucket.org/bitbucket/bitbucket"
+        "href": "https://bitbucket.org/team_name/repo_name"
       },
       "avatar": {
         "href": "https://api-staging-assetroot.s3.amazonaws.com/c/photos/2014/Aug/01/bitbucket-logo-2629490769-3_avatar.png"
@@ -78,7 +78,7 @@
             "html": {
               "href": "https://bitbucket.org/user_name/repo_name/commits/c4b2b7914156a878aa7c9da452a09fb50c2091f2"
             }
-          },
+          }
         },
         "links": {
           "self": {
