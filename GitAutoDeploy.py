@@ -35,33 +35,71 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         return myClass.config
 
     def do_POST(self):
-        event = self.headers.getheader('X-Github-Event')
-        if event == 'ping':
-            if not self.quiet:
-                print 'Ping event received'
-            self.respond(204)
-            return
-        if event != 'push':
-            if not self.quiet:
-                print 'We only handle ping and push events'
-            self.respond(304)
-            return
+        isValid = False
 
-        self.respond(204)
+        agent = self.headers.getheader("User-Agent")
 
-        urls = self.parseRequest()
-        for url in urls:
+        # print User-Agent, helps to diagnose, bitbucket should be "Bitbucket-Webhooks/2.0"
+        if not self.quiet:
+            print "User Agent is: ", agent
+
+        if agent == "Bitbucket-Webhooks/2.0":
+            isValid = self.processBitBucketRequest()
+        else:
+            isValid = self.processGithubRequest()
+
+
+        for url in self.urls:
             paths = self.getMatchingPaths(url)
             for path in paths:
                 self.fetch(path)
                 self.deploy(path)
 
-    def parseRequest(self):
+    def processGithubRequest(self):
+        self.event = self.headers.getheader('X-Github-Event')
+        if not self.quiet:
+            print "Recieved event", self.event
+
+        if self.event == 'ping':
+            if not self.quiet:
+                print 'Ping event received'
+            self.respond(204)
+            return False
+        if self.event != 'push':
+            if not self.quiet:
+                print 'We only handle ping and push events'
+            self.respond(304)
+            return False
+
+        self.respond(204)
+
         length = int(self.headers.getheader('content-length'))
         body = self.rfile.read(length)
         payload = json.loads(body)
         self.branch = payload['ref']
-        return [payload['repository']['url']]
+        self.urls = [payload['repository']['url']]
+        return True
+
+    def processBitBucketRequest(self):
+        self.event = self.headers.getheader('X-Event-Key')
+        if not self.quiet:
+            print "Recieved event", self.event
+
+        if self.event != 'repo:push':
+            if not self.quiet:
+                print 'We only handle ping and push events'
+            self.respond(304)
+            return False
+
+        length = int(self.headers.getheader('content-length'))
+        body = self.rfile.read(length)
+        self.respond(204)
+        payload = json.loads(body)
+        self.branch = payload['push']['changes'][0]['new']['name']
+        self.urls = [payload['repository']['links']['html']['href']]
+
+        return True
+
 
     def getMatchingPaths(self, repoUrl):
         res = []
@@ -95,7 +133,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                         if(not self.quiet):
                             print 'Executing deploy command'
                         call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
-                        
+
                     elif not self.quiet:
                         print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
                 break
@@ -103,13 +141,13 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
 def main():
     try:
         server = None
-        for arg in sys.argv: 
+        for arg in sys.argv:
             if(arg == '-d' or arg == '--daemon-mode'):
                 GitAutoDeploy.daemon = True
                 GitAutoDeploy.quiet = True
             if(arg == '-q' or arg == '--quiet'):
                 GitAutoDeploy.quiet = True
-                
+
         if(GitAutoDeploy.daemon):
             pid = os.fork()
             if(pid != 0):
@@ -120,7 +158,7 @@ def main():
             print 'Github Autodeploy Service v0.2 started'
         else:
             print 'Github Autodeploy Service v 0.2 started in daemon mode'
-             
+
         server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
         server.serve_forever()
     except (KeyboardInterrupt, SystemExit) as e:
