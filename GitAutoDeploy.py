@@ -77,10 +77,17 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         self.end_headers()
 
     def fetch(self, path):
+        gitcmd = 'git fetch'
+        config = self.getConfig()
+        for repository in config['repositories']:
+            if(repository['path'] == path):
+                if 'gitcmd' in repository:
+                    gitcmd = repository['gitcmd']
+                break
         if(not self.quiet):
             print "\nPost push request received"
             print 'Updating ' + path
-        call(['cd "' + path + '" && git fetch'], shell=True)
+        call(['cd "' + path + '" && ' + gitcmd], shell=True)
 
     def deploy(self, path):
         config = self.getConfig()
