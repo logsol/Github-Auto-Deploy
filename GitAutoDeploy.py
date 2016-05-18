@@ -37,13 +37,11 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
     def do_POST(self):
         event = self.headers.getheader('X-Github-Event')
         if event == 'ping':
-            if not self.quiet:
-                print 'Ping event received'
+            self.report('Ping event received')
             self.respond(204)
             return
         if event != 'push':
-            if not self.quiet:
-                print 'We only handle ping and push events'
+            self.report('We only handle ping and push events')
             self.respond(304)
             return
 
@@ -64,12 +62,12 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         return [payload['repository']['url']]
 
     def getMatchingPaths(self, repoUrl):
-        res = []
         config = self.getConfig()
-        for repository in config['repositories']:
-            if(repository['url'] == repoUrl):
-                res.append(repository['path'])
-        return res
+        return [
+            repository
+            for repository in config['repositories']
+            if repository['url'] == repoUrl
+        ]
 
     def respond(self, code):
         self.send_response(code)
@@ -77,39 +75,42 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         self.end_headers()
 
     def fetch(self, path):
-        if(not self.quiet):
-            print "\nPost push request received"
-            print 'Updating ' + path
-        call(['cd "' + path + '" && git fetch'], shell=True)
+        self.report(
+            '\nPost push request received'
+            '\nUpdating ' + path
+        )
+        call(['git', '-C', path, 'fetch'])
 
     def deploy(self, path):
         config = self.getConfig()
         for repository in config['repositories']:
             if(repository['path'] == path):
                 if 'deploy' in repository:
-                    branch = None
-                    if 'branch' in repository:
-                        branch = repository['branch']
+                    branch = repository.get('branch', None)
 
                     if branch is None or branch == self.branch:
-                        if(not self.quiet):
-                            print 'Executing deploy command'
+                        self.report('Executing deploy command')
                         call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
-                        
-                    elif not self.quiet:
-                        print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
+
+                    else:
+                        self.report('Push to different branch (%s != %s), not deploying' % (branch, self.branch))
                 break
+
+    @classmethod
+    def report(self, message):
+        if not self.quiet:
+            print message
 
 def main():
     try:
         server = None
-        for arg in sys.argv: 
+        for arg in sys.argv:
             if(arg == '-d' or arg == '--daemon-mode'):
                 GitAutoDeploy.daemon = True
                 GitAutoDeploy.quiet = True
             if(arg == '-q' or arg == '--quiet'):
                 GitAutoDeploy.quiet = True
-                
+
         if(GitAutoDeploy.daemon):
             pid = os.fork()
             if(pid != 0):
@@ -120,7 +121,7 @@ def main():
             print 'Github Autodeploy Service v0.2 started'
         else:
             print 'Github Autodeploy Service v 0.2 started in daemon mode'
-             
+
         server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
         server.serve_forever()
     except (KeyboardInterrupt, SystemExit) as e:
@@ -130,8 +131,7 @@ def main():
         if(not server is None):
             server.socket.close()
 
-        if(not GitAutoDeploy.quiet):
-            print 'Goodbye'
+        GitAutoDeploy.report('Goodbye')
 
 if __name__ == '__main__':
      main()
