@@ -3,36 +3,46 @@
 import json, urlparse, sys, os
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from subprocess import call
+import argparse
+
+
+__version__ = '0.2'
+
+
+DEFAULT_CONFIG_FILEPATH = './GitAutoDeploy.conf.json'
+
 
 class GitAutoDeploy(BaseHTTPRequestHandler):
-
-    CONFIG_FILEPATH = './GitAutoDeploy.conf.json'
-    config = None
+    _config = None
     quiet = False
     daemon = False
 
     @classmethod
-    def getConfig(myClass):
-        if(myClass.config == None):
-            try:
-                configString = open(myClass.CONFIG_FILEPATH).read()
-            except:
-                sys.exit('Could not load ' + myClass.CONFIG_FILEPATH + ' file')
+    def init_config(cls, path):
+        try:
+            configString = open(path).read()
+        except:
+            sys.exit('Could not load ' + path + ' file')
 
-            try:
-                myClass.config = json.loads(configString)
-            except:
-                sys.exit(myClass.CONFIG_FILEPATH + ' file is not valid json')
+        try:
+            cls._config = json.loads(configString)
+        except:
+            sys.exit(path + ' file is not valid json')
 
-            for repository in myClass.config['repositories']:
-                if(not os.path.isdir(repository['path'])):
-                    sys.exit('Directory ' + repository['path'] + ' not found')
-                # Check for a repository with a local or a remote GIT_WORK_DIR
-                if not os.path.isdir(os.path.join(repository['path'], '.git')) \
-                   and not os.path.isdir(os.path.join(repository['path'], 'objects')):
-                    sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
+        for repository in cls.config['repositories']:
+            if(not os.path.isdir(repository['path'])):
+                sys.exit('Directory ' + repository['path'] + ' not found')
+            # Check for a repository with a local or a remote GIT_WORK_DIR
+            if not os.path.isdir(os.path.join(repository['path'], '.git')) \
+               and not os.path.isdir(os.path.join(repository['path'], 'objects')):
+                sys.exit('Directory ' + repository['path'] + ' is not a Git repository')
 
-        return myClass.config
+    @property
+    def config(self):
+        if self._config is None:
+            raise Exception('Config not initialized')
+        else:
+            return self._config
 
     def do_POST(self):
         event = self.headers.getheader('X-Github-Event')
@@ -65,8 +75,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
 
     def getMatchingPaths(self, repoUrl):
         res = []
-        config = self.getConfig()
-        for repository in config['repositories']:
+        for repository in self.config['repositories']:
             if(repository['url'] == repoUrl):
                 res.append(repository['path'])
         return res
@@ -83,8 +92,7 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
         call(['cd "' + path + '" && git fetch'], shell=True)
 
     def deploy(self, path):
-        config = self.getConfig()
-        for repository in config['repositories']:
+        for repository in self.config['repositories']:
             if(repository['path'] == path):
                 if 'deploy' in repository:
                     branch = None
@@ -95,21 +103,31 @@ class GitAutoDeploy(BaseHTTPRequestHandler):
                         if(not self.quiet):
                             print 'Executing deploy command'
                         call(['cd "' + path + '" && ' + repository['deploy']], shell=True)
-                        
+
                     elif not self.quiet:
                         print 'Push to different branch (%s != %s), not deploying' % (branch, self.branch)
                 break
 
+
+def get_args():
+    parser = argparse.ArgumentParser(description='Github Autodeploy Service')
+    parser.add_argument('-q', '--quiet', action='store_true', help='disable status reporting')
+    parser.add_argument('-d', '--daemon-mode', action='store_true', help='run this script as a daemon')
+    parser.add_argument('-c', '--config', default=GitAutoDeploy.DEFAULT_CONFIG_FILEPATH,
+                        help='provide an alternative path for the config file used')
+
+    return parser.parse_args()
+
+
 def main():
+    server = None
     try:
-        server = None
-        for arg in sys.argv: 
-            if(arg == '-d' or arg == '--daemon-mode'):
-                GitAutoDeploy.daemon = True
-                GitAutoDeploy.quiet = True
-            if(arg == '-q' or arg == '--quiet'):
-                GitAutoDeploy.quiet = True
-                
+        args = get_args()
+
+        GitAutoDeploy.quiet = args.quiet or args.daemon_mode
+        GitAutoDeploy.daemon = args.daemon_mode
+        GitAutoDeploy.init_config(args.config)
+
         if(GitAutoDeploy.daemon):
             pid = os.fork()
             if(pid != 0):
@@ -117,11 +135,12 @@ def main():
             os.setsid()
 
         if(not GitAutoDeploy.quiet):
-            print 'Github Autodeploy Service v0.2 started'
-        else:
-            print 'Github Autodeploy Service v 0.2 started in daemon mode'
-             
-        server = HTTPServer(('', GitAutoDeploy.getConfig()['port']), GitAutoDeploy)
+            if not GitAutoDeploy.daemon:
+                print 'Github Autodeploy Service v' + __version__ + ' started'
+            else:
+                print 'Github Autodeploy Service v' + __version__ + ' started in daemon mode'
+
+        server = HTTPServer(('', GitAutoDeploy._config['port']), GitAutoDeploy)
         server.serve_forever()
     except (KeyboardInterrupt, SystemExit) as e:
         if(e): # wtf, why is this creating a new line?
